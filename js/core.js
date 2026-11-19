@@ -39,11 +39,14 @@
   function conflicts(bookings, req, excludeId) {
     return bookings.some(b => b.status === 'active' && b.id !== excludeId && b.date === req.date && b.roomId === req.roomId && b.seat === req.seat && overlaps(b.start, b.end, req.start, req.end));
   }
+  function hasStartedToday(req, current) {
+    return req.date === localDate(current) && req.start <= current.getHours();
+  }
   function canBook(bookings, req, today, now) {
     const error = validateRequest(req, today);
     if (error) return { ok: false, message: error };
     const current = now || new Date();
-    if (req.date === localDate(current) && req.start <= current.getHours()) return { ok: false, message: '不能预约已开始或过去的时段' };
+    if (hasStartedToday(req, current)) return { ok: false, message: '不能预约已开始或过去的时段' };
     if (conflicts(bookings, req)) return { ok: false, message: '这个座位的该时段已被预约，请更换座位或时间' };
     return { ok: true, message: '可预约' };
   }
@@ -52,5 +55,27 @@
     const currentDate = localDate(current);
     return booking.date < currentDate || (booking.date === currentDate && booking.end <= current.getHours());
   }
-  return { ROOMS, OPEN, CLOSE, WINDOW_DAYS, localDate, addDays, isValidDate, overlaps, validateRequest, conflicts, canBook, isPast };
+  function canUpdateBooking(bookings, bookingId, req, today, now) {
+    const target = bookings.find(booking => booking.id === bookingId);
+    if (!target) return { ok: false, message: '找不到要修改的预约' };
+    if (target.status !== 'active') return { ok: false, message: '仅有效预约可以修改' };
+
+    const current = now || new Date();
+    if (isPast(target, current)) return { ok: false, message: '已结束的预约不能修改' };
+
+    const error = validateRequest(req, today);
+    if (error) return { ok: false, message: error };
+    if (req.roomId !== target.roomId || req.seat !== target.seat) {
+      return { ok: false, message: '修改预约时不能更换自习室或座位' };
+    }
+    if (hasStartedToday(req, current)) return { ok: false, message: '不能修改到已开始或过去的时段' };
+    if (conflicts(bookings, req, bookingId)) {
+      return { ok: false, message: '这个座位的该时段已被预约，请选择其他时间' };
+    }
+    return { ok: true, message: '可以修改预约' };
+  }
+  return {
+    ROOMS, OPEN, CLOSE, WINDOW_DAYS, localDate, addDays, isValidDate, overlaps,
+    validateRequest, conflicts, canBook, isPast, canUpdateBooking
+  };
 });
