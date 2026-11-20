@@ -1,0 +1,9 @@
+{
+  "name": "studyroom-booking-system",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Study room booking demo system - CR-001 implementation",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
